@@ -6,15 +6,16 @@ import subprocess
 from tkinter import messagebox
 from zipfile import ZipFile
 
-import emulators.switch_emulator as switch_emu
+from emulators.switch_emulator import SwitchEmulator
 from utils.downloader import download_through_stream
 from utils.file_utils import copy_directory_with_progress
 from utils.requests_utils import (create_get_connection, get_headers,
                                   get_release_from_assets)
 
 
-class Yuzu:
+class Yuzu(SwitchEmulator):
     def __init__(self, gui, settings, metadata):
+        super().__init__(emulator="yuzu", emulator_settings=settings.yuzu, firmware_path="nand/system/Contents/registered", key_path="keys")
         self.settings = settings
         self.metadata = metadata
         self.gui = gui
@@ -197,14 +198,14 @@ class Yuzu:
             installed_firmware_version = installed_firmware_version[0]
         if installed_firmware_version != "" and self.metadata.get_installed_version("yuzu_keys") != "" and installed_firmware_version != self.metadata.get_installed_version("yuzu_keys"):
             messagebox.showwarning("Version Mismatch", "It seems you have a different version for your keys and firmware. This may cause issues and it is recommended that you install the same version.")
-        if not switch_emu.check_current_keys(os.path.join(self.settings.yuzu.user_directory, "keys", "prod.keys")):
+        if not self.check_current_keys()[0]:
             if messagebox.askyesno("Missing Keys", "It seems you are missing the switch decryption keys. These keys are required to emulate games. Would you like to install them right now?"):
                 if self.gui.firmware_keys_frame.key_option_menu.cget("state") == "disabled":
                     messagebox.showerror("Install Keys", "Unable to fetch latest prod.keys. Please try again later or restart the application.")
                 else:
                     latest_key_release = self.gui.firmware_keys_frame.firmware_key_version_dict["keys"][self.gui.firmware_keys_frame.key_option_menu.cget("values")[0]]
                     self.install_key_handler("release", latest_key_release)
-        if self.settings.app.ask_firmware != "False" and not switch_emu.check_current_firmware(os.path.join(self.settings.yuzu.user_directory, "nand", "system", "Contents", "registered")):
+        if self.settings.app.ask_firmware != "False" and not self.check_current_firmware():
             if messagebox.askyesno("Firmware Missing", "It seems you are missing the switch firmware files. Without these files, some games may not run.\n\nWould you like to install the firmware now? If you select no, you will not be asked again"):
                 if self.gui.firmware_keys_frame.firmware_option_menu.cget("state") == "disabled":
                     messagebox.showerror("Install Firmware", "Unable to fetch latest Firmware. Please try again later or restart the application.")
@@ -217,7 +218,7 @@ class Yuzu:
         return True
 
     def install_firmware_handler(self, mode, path_or_release):
-        if switch_emu.check_current_firmware(os.path.join(self.settings.yuzu.user_directory, "nand", "system", "Contents", "registered")) and not messagebox.askyesno("Firmware Exists", "It seems that you already have firmware installed. Would you like to continue?"):
+        if self.check_current_firmware() and not messagebox.askyesno("Firmware Exists", "It seems that you already have firmware installed. Would you like to continue?"):
             return
 
         if mode == "release":
@@ -234,13 +235,13 @@ class Yuzu:
                 return False
             firmware_path = firmware_path[1]
             version = release.version
-        elif mode == "path" and not switch_emu.verify_firmware_archive(path_or_release):
+        elif mode == "path" and not self.verify_firmware_archive(path_or_release):
             messagebox.showerror("Error", "The firmware archive you have provided is invalid")
             return
         else:
             firmware_path = path_or_release
 
-        result = switch_emu.install_firmware_from_archive(firmware_path, os.path.join(self.settings.yuzu.user_directory, "nand", "system", "Contents", "registered"), self.main_progress_frame, "yuzu")
+        result = self.install_firmware_from_archive(firmware_path, self.main_progress_frame)
         if not result[0]:
             messagebox.showerror("Extract Error", f"There was an error while trying to extract the firmware archive: \n\n{result[1]}")
             return
@@ -277,7 +278,7 @@ class Yuzu:
         return download_result
 
     def install_key_handler(self, mode, path_or_release):
-        if switch_emu.check_current_keys(os.path.join(self.settings.yuzu.user_directory, "keys", "prod.keys")) and not messagebox.askyesno("Keys Exist", "It seems you already have decryption keys. Would you like to continue?"):
+        if self.check_current_keys()[0] and not messagebox.askyesno("Keys Exist", "It seems you already have decryption keys. Would you like to continue?"):
             return
         if mode == "release":
             release = path_or_release
@@ -294,15 +295,15 @@ class Yuzu:
             key_path = key_path[1]
             version = release.version
 
-        elif not switch_emu.verify_key_archive(path_or_release):
-            messagebox.showerror("Error", "The key archive you have provided is invalid")
+        elif not self.verify_keys(path_or_release):
+            messagebox.showerror("Error", "The key archive or file you have provided is invalid. \nPlease ensure that it is a .zip file containing the 'prod.keys' or 'title.keys' in the root directory\nor a 'prod.keys' or 'title.keys' file.")
             return
         else:
             key_path = path_or_release
         if key_path.endswith(".keys"):
-            switch_emu.install_keys_from_file(key_path, os.path.join(self.settings.yuzu.user_directory, "keys"))
+            self.install_keys_from_file(key_path)
         else:
-            result = switch_emu.install_keys_from_archive(key_path, os.path.join(self.settings.yuzu.user_directory, "keys"), self.main_progress_frame)
+            result = self.install_keys_from_archive(key_path, self.main_progress_frame)
             if not all(result):
                 messagebox.showerror("Extract Error", f"There was an error while trying to extract the key archive: \n\n{result[1]}")
                 return
