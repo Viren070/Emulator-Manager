@@ -9,14 +9,16 @@ import customtkinter
 from gui.windows.progress_window import ProgressWindow
 from utils.downloader import download_through_stream
 from utils.requests_utils import create_get_connection, get_headers
+from utils.logger import setup_logger
 
 
 class SavesBrowser(customtkinter.CTkToplevel):
     def __init__(self, title, saves, title_id, *args, **kwargs):
+        self.logger = setup_logger(__name__)
+        self.logger.info(f"Initalising SavesBrowser for {title}: {title_id} with {len(saves)} save(s).")
         super().__init__(*args, **kwargs)
         self.title(title)
         self.saves = saves
-        
         self.lift()  # lift window on top
         self.attributes("-topmost", True)  # stay on top
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -52,6 +54,7 @@ class SavesBrowser(customtkinter.CTkToplevel):
         self.grid_columnconfigure(0, weight=1)
         
     def download_save(self, save):
+        self.logger.info(f"Downloading save: {save}")
         progress_window = ProgressWindow(title="Downloading Save")
         self.attributes("-topmost", False)
         self.grab_release()
