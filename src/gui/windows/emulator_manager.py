@@ -21,6 +21,7 @@ from settings.cache import Cache
 from settings.metadata import Metadata
 from settings.settings import Settings
 from utils.auth_token_manager import delete_token_file
+from utils.logger import setup_logger
 from utils.requests_utils import (fetch_firmware_keys_dict, get_all_releases,
                                   get_headers)
 
@@ -29,8 +30,13 @@ class EmulatorManager(customtkinter.CTk):
     def __init__(self, root_dir, open_app_settings=False, pos=None):
         self.just_opened = True
         super().__init__()
+        self.logger = setup_logger(__name__)
+        self.logger.info("Initialising Emulator Manager")
+        self.logger.info("Initialising Settings...")
         self.settings = Settings(self, root_dir)
+        self.logger.info("Initialising Metadata...")
         self.metadata = Metadata(self, self.settings)
+        self.logger.info("Initialising Cache...")
         self.cache = Cache(self, self.settings, self.metadata)
         self.version = "v0.13.8"
         self.root_dir = root_dir
@@ -39,8 +45,10 @@ class EmulatorManager(customtkinter.CTk):
         self.x = pos[0]
         self.y = pos[1]
         try:
+            self.logger.info("Defining images")
             self.define_images()
         except FileNotFoundError:
+            self.logger.critical("Missing image files. Exiting...")
             messagebox.showerror("Image Error", "The image files could not be found, try re-downloading the latest release from the GitHub repository.", master=self)
             return
         self.build_gui()
@@ -74,6 +82,7 @@ class EmulatorManager(customtkinter.CTk):
         self.discord_icon = customtkinter.CTkImage(Image.open(self.settings.get_image_path("discord_icon")), size=(22, 22))
 
     def build_gui(self):
+        self.logger.info("Building GUI")
         self.resizable(True, True)  # disable resizing of window
         self.title("Emulator Manager")  # set title of window
 
@@ -130,12 +139,17 @@ class EmulatorManager(customtkinter.CTk):
                                                        fg_color="transparent", text_color=text_color,
                                                        anchor="w", command=self.settings_button_event)
         self.settings_button.grid(row=3, column=0, sticky="ew")
-
+        self.logger.info("Initialising frames...")
         self.yuzu_frame = YuzuFrame(self, self.settings, self.metadata, self.cache)
+        self.logger.info("Initialised Yuzu Frame")
         self.dolphin_frame = DolphinFrame(self, self.settings, self.metadata, self.cache)
+        self.logger.info("Initialised Dolphin Frame")
         self.ryujinx_frame = RyujinxFrame(self, self.settings, self.metadata, self.cache)
+        self.logger.info("Initialised Ryujinx Frame")
         self.xenia_frame = XeniaFrame(self, self.settings, self.metadata, self.cache)
+        self.logger.info("Initialised Xenia Frame")
         self.settings_frame = SettingsFrame(self, self.settings)
+        self.logger.info("Initialised Settings Frame")
 
     def show_discord_invite(self):
         if messagebox.askyesno("Discord Invite", "Would you like to join the Emulator Manager Discord server?\n\nBy joining, you can get help with any issues you may have, as well as get notified of any updates or new features.\n\nIf you click yes, your default web browser will open the invite link."):
