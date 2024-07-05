@@ -108,16 +108,6 @@ class SwitchTitle:
             messagebox.showinfo("Download Complete", "The cover image has been downloaded successfully.")
         self.downloading_cover = False
 
-    def choose_custom_cover(self):
-        new_cover = filedialog.askopenfilename(title="Select a new cover image", filetypes=[("Image Files", "*.png *.jpg *.jpeg *.gif")])
-        if new_cover:
-            self.cover = customtkinter.CTkImage(Image.open(new_cover), size=(224, 224))
-            if self.button is not None:
-                self.button.configure(image=self.cover)
-            else:
-                self.master.update_results()
-            cache_path = os.path.join(self.cache.cache_directory, "images", f"{self.title_id}.png")
-            shutil.copy2(new_cover, cache_path)
 
     def update_title_text(self, width):
         char_width = 11  # mode of all alphabetical charters and 3 unicode characters (2014, 2019, 2122) in Arial 16
@@ -128,45 +118,33 @@ class SwitchTitle:
         self.name.set(textwrap.fill(self.name.get(), width=max_length))
 
 
-class SwitchROMSFrame(customtkinter.CTkFrame):
-    def __init__(self, master, settings, cache, get_title_ids_func, emulator):
+class SwitchGamesBrowser(customtkinter.CTkFrame):
+    def __init__(self, master, settings, cache):
         super().__init__(master, height=700)
-        self.get_title_ids = get_title_ids_func
         self.results_per_page = 10
         self.refreshing = False
         self.char_width = customtkinter.CTkFont("Arial", 16).measure("a")
         self.settings = settings
         self.cache = cache
-        self.emulator = emulator
         self.current_page = None
         self.update_in_progress = False
         self.searching = False
         self.build_frame()
-        title_ids = self.get_title_ids()
         self.define_titles_db()
         self.attempted_update = False
-        self.titles = [SwitchTitle(self, title_id, settings, cache) for title_id in title_ids]  # Create game objects
-        self.searched_titles = self.titles
-        self.total_pages = (len(self.searched_titles) + self.results_per_page - 1) // self.results_per_page
+        self.searched_titles = []
+        self.total_pages = 0
         self.total_pages_label.configure(text=f"/ {self.total_pages}")
         self.update_results()
         self.bind("<Configure>", lambda event: [game.update_title_text(self.result_frame.winfo_width()) for game in self.get_current_page_titles()])
 
     def define_titles_db(self):
-        title_ids = self.get_title_ids()
-        titledb_lookup_result = self.cache.get_data_from_cache("titleDB")  # Check if titles.json is cached
-        missing_title = False
+        titledb_lookup_result = self.cache.get_data_from_cache("titleDB")  # Check if titles.US.en is cached
         self.titles_db = None
         if titledb_lookup_result is not None and os.path.exists(titledb_lookup_result["data"]):
-            for title_id in title_ids:
-                if not self.cache.get_data_from_cache(f"{title_id}_metadata"):
-                    missing_title = True
-                    break
-            if missing_title:
-                # if a title is missing, load the titleDB as it is a large file and we don't want to load it if we don't need to
-                with open(titledb_lookup_result["data"], "r", encoding="utf-8") as f:
-                    self.titles_db = json.load(f)
-
+            with open(titledb_lookup_result["data"], "r", encoding="utf-8") as f:
+                self.titles_db = json.load(f)
+            self.preprocess_database()
     def get_current_page_titles(self):
         start_index = (int(self.current_page_entry.get()) - 1) * self.results_per_page
         end_index = start_index + self.results_per_page
@@ -276,13 +254,11 @@ class SwitchROMSFrame(customtkinter.CTkFrame):
             widget.grid_forget()
 
         row_counter = 0
-        if not self.searched_titles and not self.titles:
-            # Create a label with text that depends on the value of self.emulator
-            emulator_specific_text = " and you have launched them at least once" if self.emulator == "ryujinx" else ""
-            text = f"It appears you have no games. Any games that are visible on {self.emulator.capitalize()} {emulator_specific_text} will show up here. If you have games on {self.emulator.capitalize()} that are not showing up here, please make sure that you have the correct user directory set in the settings."
+        if not self.searched_titles:
 
-            no_games_label = customtkinter.CTkLabel(self.result_frame, text=textwrap.fill(text, 60), font=customtkinter.CTkFont("Arial", 16), anchor="center")
-            no_games_label.grid(row=0, column=0, sticky="nsew")
+            prompt_search_label = customtkinter.CTkLabel(self.result_frame, text=textwrap.fill("Use the search bar to search for a game you want to download", 60), font=customtkinter.CTkFont("Arial", 16), anchor="center")
+            prompt_search_label.grid(row=0, column=0, sticky="nsew")
+            
         for i, game in enumerate(self.searched_titles):
             if i > end_index:
                 break
@@ -296,7 +272,6 @@ class SwitchROMSFrame(customtkinter.CTkFrame):
             game_cover = customtkinter.CTkButton(game_frame, hover_color=None, border_width=0, text="", image=game.cover)
             game.frame = game_frame
             game.button = game_cover
-            game_cover.bind("<Button-3>", command=lambda event, game=game: game.choose_custom_cover())
             game_cover.bind("<Shift-Button-3>", command=lambda event, game=game: Thread(target=game.download_cover, args=(False, )).start())
             game_cover.grid(row=0, column=0, rowspan=3, padx=10, pady=5, sticky="nsew")  # Span 3 rows
 
@@ -328,18 +303,59 @@ class SwitchROMSFrame(customtkinter.CTkFrame):
         self.prev_button.configure(state="normal")
         self.update_in_progress = False
 
+    def preprocess_database(self):
+        self.inverted_index = {}
+        for game_id, game_info in self.titles_db.items():
+            # Process 'name' and 'description' fields
+            for field in ['name', 'description']:
+                text = game_info.get(field, "")
+                if text is None:
+                    continue
+                text = text.lower()  # Ensure lowercase for consistency
+                tokens = set(text.split())  # Simple tokenization by splitting on whitespace
+                for token in tokens:
+                    if token not in self.inverted_index:
+                        self.inverted_index[token] = set()
+                    self.inverted_index[token].add(game_id)
+            
+            # Process 'category' field separately since it's a list
+            categories = game_info.get('category', [])
+            if categories is None:
+                continue
+            for category in categories:
+                category = category.lower()  # Ensure lowercase for consistency
+                if category not in self.inverted_index:
+                    self.inverted_index[category] = set()
+                self.inverted_index[category].add(game_id)
+                    
     def perform_search(self, *args):
         if self.searching:
             return
-        self.searching = True
-        query = self.search_entry.get().strip()
-        if query == "":
+
+        query = self.search_entry.get().lower()
+        if not query or len(query) < 3:
             self.searched_titles = self.titles
-        else:
+            return 
+        if not self.titles_db:
             self.searched_titles = []
-            for title in self.titles:
-                if query.lower() in title.name.get().lower():
-                    self.searched_titles.append(title)
+            return
+        self.searching = True
+        query_tokens = query.split()
+        matching_game_ids = set()
+        for token in query_tokens:
+            if token in self.inverted_index:
+                if not matching_game_ids:
+                    matching_game_ids = self.inverted_index[token]
+                else:
+                    matching_game_ids.intersection_update(self.inverted_index[token])
+
+        # Retrieve the full game details for the matching IDs
+        self.searched_titles = [self.titles_db[game_id] for game_id in matching_game_ids]
+
+    
+        
+        
+        
         self.total_pages = (len(self.searched_titles) + self.results_per_page - 1) // self.results_per_page
         self.total_pages_label.configure(text=f"/ {self.total_pages}")
         self.current_page = 1
@@ -374,8 +390,8 @@ class SwitchROMSFrame(customtkinter.CTkFrame):
 
     def check_titles_db(self):
         data = self.cache.get_data_from_cache("titleDB")
-        if data is None and os.path.exists(os.path.join(self.cache.cache_directory, "files", "titles.json")):
-            self.cache.add_custom_file_to_cache("titleDB", os.path.join(self.cache.cache_directory, "files", "titles.json"))
+        if data is None and os.path.exists(os.path.join(self.cache.cache_directory, "files", "titles.US.en.json")):
+            self.cache.add_custom_file_to_cache("titleDB", os.path.join(self.cache.cache_directory, "files", "titles.US.en.json"))
             return True
 
         if data:
@@ -403,7 +419,7 @@ class SwitchROMSFrame(customtkinter.CTkFrame):
         progress_frame.start_download("TitleDB", 0)
         from utils.downloader import download_through_stream
         from utils.requests_utils import create_get_connection
-        response_result = create_get_connection("https://github.com/Viren070/titledb/releases/download/latest/titles.json", stream=True, headers=get_headers(self.settings.app.token), timeout=30)
+        response_result = create_get_connection("https://github.com/Viren070/titledb/releases/download/latest/titles.US.en.json", stream=True, headers=get_headers(self.settings.app.token), timeout=30)
         if not all(response_result):
             if not response_result[1] == "Cancelled":
                 messagebox.showerror("Download Error", f"There was an error while attempting to download the TitleDB:\n\n {response_result[1]}")
@@ -412,7 +428,7 @@ class SwitchROMSFrame(customtkinter.CTkFrame):
         response = response_result[1]
         progress_frame.start_download("TitleDB", int(response.headers.get('content-length', 0)))
         progress_frame.grid(row=0, column=0, sticky="ew")
-        download_path = os.path.normpath(os.path.join(os.getcwd(), "titles.json"))
+        download_path = os.path.normpath(os.path.join(os.getcwd(), "titles.US.en.json"))
         download_result = download_through_stream(response, download_path, progress_frame, 1024*128)
         progress_frame.complete_download()
         progress_frame.grid_forget()
@@ -439,43 +455,3 @@ class SwitchROMSFrame(customtkinter.CTkFrame):
         messagebox.showinfo("Download Complete", "The TitleDB has been downloaded successfully.")
         Thread(target=self.refresh_title_list).start()
 
-    def download_mods(self, game):
-        messagebox.showinfo("Download Mods", "This feature is not yet implemented.")
-
-    def get_all_saves(self):
-        response_result = create_get_connection("https://api.github.com/repos/Viren070/NX_Saves/contents/nintendo/switch/savegames", headers=get_headers(self.settings.app.token))
-        if not all(response_result):
-            return response_result
-        base_download_url = "https://raw.githubusercontent.com/Viren070/NX_Saves/main/nintendo/switch/savegames/"
-        response = response_result[1]
-        saves = json.loads(response.text)
-        saves = [save["download_url"].replace(base_download_url, "") for save in saves]
-        return (True, saves)
-
-    def download_saves(self, game, button):
-        cache_save_lookup_result = self.cache.get_json_data_from_cache("switch_saves")
-        button.configure(state="disabled", text="Fetching...")
-        if cache_save_lookup_result is None or (time.time() - cache_save_lookup_result["time"]) > 86400:  # 1 day
-            saves = self.get_all_saves()
-            if not all(saves):
-                if saves[0]:
-                    messagebox.showerror("Fetch Error", "An unknown error has occured and no saves were found at the moment. Please try again later.")
-                else:
-                    messagebox.showerror("Fetch Error", f"There was an error while attempting to fetch the saves:\n\n {saves[1]}")
-                button.configure(state="normal", text="Download Saves")
-                return
-            saves = saves[1]
-            self.cache.add_json_data_to_cache("switch_saves", saves)
-        else:
-            saves = cache_save_lookup_result["data"]
-        title_saves = []
-        for save in saves:
-            if game.title_id in save:
-                title_saves.append(save)
-
-        if len(title_saves) == 0:
-            messagebox.showerror("Fetch Error", "There are no saves available for this game.")
-            button.configure(state="normal", text="Download Saves")
-            return
-        SavesBrowser(title=game.name.get(), master=self, saves=title_saves, title_id=game.title_id)
-        button.configure(state="normal", text="Download Saves")

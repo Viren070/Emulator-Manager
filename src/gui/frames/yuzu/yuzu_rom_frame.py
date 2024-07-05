@@ -3,6 +3,7 @@ import os
 import customtkinter
 
 from gui.frames.switch_roms_frame import SwitchROMSFrame
+from gui.frames.switch_game_browser import SwitchGamesBrowser
 
 
 class YuzuROMFrame(customtkinter.CTkTabview):
@@ -39,3 +40,10 @@ class YuzuROMFrame(customtkinter.CTkTabview):
 
         self.current_roms_frame = SwitchROMSFrame(self.tab("My ROMs"), self.settings, self.cache, self.get_game_ids, "yuzu")
         self.current_roms_frame.grid(row=0, column=0, sticky="nsew")
+
+        self.add("Game Browser")
+        self.tab("Game Browser").grid_columnconfigure(0, weight=1)
+        self.tab("Game Browser").grid_rowconfigure(0, weight=1)
+        
+        self.game_browser_frame = SwitchGamesBrowser(self.tab("Game Browser"), self.settings, self.cache)
+        self.game_browser_frame.grid(row=0, column=0, sticky="nsew")
