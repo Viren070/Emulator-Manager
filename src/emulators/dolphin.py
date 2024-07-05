@@ -91,7 +91,12 @@ class Dolphin:
         files_result = get_file_links_from_page(download_page, headers=get_headers(), file_ext=".7z")
         if all(files_result):
             files = files_result[1]
-            latest_release = files[0]
+            for release in files: 
+                if "ARM64" in release.filename:
+                    continue 
+                else:
+                    latest_release = release
+                    break
             match = re.search(r"dolphin(?:-master)?-(\d+(?:-\d+)?)", latest_release.filename)
             if match:
                 latest_release.version = match.group(1)
