@@ -30,6 +30,7 @@ class EmulatorManager(customtkinter.CTk):
         self.settings = Settings(self, root_dir)
         self.metadata = Metadata(self, self.settings)
         self.cache = Cache(self, self.settings, self.metadata)
+        self.cleanup_game_search_cache()
         self.version = "v0.13.11"
         self.root_dir = root_dir
         if pos is None:
@@ -230,10 +231,18 @@ class EmulatorManager(customtkinter.CTk):
         if messagebox.askyesno("Update Available", f"There is a new {release_type} update ({version}) available to download from the GitHub Repository.{alpha_warning} \nWould you like to download it now?"):
             webbrowser.open(f"https://github.com/Viren070/Emulator-Manager/releases/tag/{version}")
 
+    def cleanup_game_search_cache(self):
+        print("Cleaning up game search cache")
+        for file in os.listdir(os.path.join(self.cache.cache_directory, "files")):
+            if file.endswith("icon_search.png"):
+                print(f"Removing {file}")
+                self.cache.remove_from_index(file.split(".")[0])
+
     def on_closing(self):
         if (self.dolphin_frame.dolphin.running or self.yuzu_frame.yuzu.running):
             messagebox.showerror("Emulator Manager", "Please close any emulators before attempting to exit.")
             return
+        self.cleanup_game_search_cache()
         temp_folder = os.path.join(os.getenv("TEMP"), "Emulator Manager")
         if os.path.exists(temp_folder):
             try:
