@@ -14,11 +14,10 @@ from core.network.web import download_file_with_progress
 
 
 class Xenia:
-    def __init__(self, gui, settings, versions):
+    def __init__(self, settings, versions):
         self.logger = Logger(__name__).get_logger()
         self.settings = settings
         self.versions = versions
-        self.gui = gui
         self.running = False
         self.main_progress_frame = None
         self.data_progress_frame = None

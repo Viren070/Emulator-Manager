@@ -32,6 +32,14 @@ class Cache:
         if not self._is_index_file_valid():
             self._create_index_file()
 
+    def reset(self):
+        """
+        Reset the cache by removing all files and the index file.
+        """
+        self.logger.info("Resetting the cache")
+        for file in self.cache_directory.iterdir():
+            file.unlink()
+
     def _is_index_file_valid(self):
         """
         Check if the index file is valid.

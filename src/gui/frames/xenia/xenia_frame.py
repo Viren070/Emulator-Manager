@@ -15,7 +15,7 @@ from gui.windows.path_dialog import PathDialog
 class XeniaFrame(EmulatorFrame):
     def __init__(self, master, paths, settings, versions, assets, cache, event_manager: ThreadEventManager):
         super().__init__(parent_frame=master, paths=paths, settings=settings, versions=versions, assets=assets)
-        self.xenia = Xenia(self, settings, versions)
+        self.xenia = Xenia(settings, versions)
         self.paths = paths
         self.cache = cache
         self.event_manager = event_manager

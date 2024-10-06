@@ -131,9 +131,7 @@ class MySwitchGamesFrame(GameListFrame):
             return {}
 
         icon_path = download_result["download_path"]
-        add_to_cache_result = self.cache.add_file(f"{title_id}_icon", icon_path)
-        if not add_to_cache_result["status"]:
-            return {}
+        self.cache.add_file(f"{title_id}_icon", icon_path)
 
         cache_query_result = self.cache.get_file(f"{title_id}_icon")
         if not cache_query_result:
@@ -210,7 +208,7 @@ class MySwitchGamesFrame(GameListFrame):
 
         titledb = cache_lookup_result["data"]
 
-        self.load_titledb(titledb, refetch_on_error=False)
+        self.load_titledb(titledb)
 
         self.fetching_titledb = False
         return {

@@ -1,7 +1,7 @@
 import sys
 
 import customtkinter
-
+from cli.emuhaven_cli import EmuHavenCLI
 from core.config.assets import Assets
 from core.config.cache import Cache
 from core.config.paths import Paths
@@ -23,7 +23,7 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     if args:
         logger.info("Starting the application in CLI mode")
-
+        app = EmuHavenCLI(paths=paths, settings=settings, versions=versions, cache=cache)
     else:
         try:
             # attempt to load assets

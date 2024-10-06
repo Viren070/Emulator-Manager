@@ -7,13 +7,18 @@ from core.logging.logger import Logger
 class DolphinSettings:
     def __init__(self):
         self.logger = Logger(__name__).get_logger()
-        self.config = {
+        self.default_config = {
             "release_channel": "release",
             "portable_mode": False,
             "install_directory": self.get_default_install_directory(),
             "game_directory": Path().resolve(),
             "sync_user_data": True,
         }
+        self._config = self.default_config.copy()
+
+    def reset(self):
+        self.logger.info("Resetting Dolphin settings")
+        self._config = self.default_config.copy()
 
     def get_default_install_directory(self):
 
@@ -26,10 +31,10 @@ class DolphinSettings:
 
     def _set_property(self, property_name, value):
         self.logger.debug(f"Setting {property_name} to {value}")
-        self.config[property_name] = value
+        self._config[property_name] = value
 
     def _get_property(self, property_name):
-        return self.config.get(property_name)
+        return self._config.get(property_name)
 
     portable_mode = property(
         fget=lambda self: self._get_property("portable_mode"),

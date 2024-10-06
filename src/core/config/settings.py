@@ -41,6 +41,15 @@ class Settings:
             self.create_settings_file()
             self.load()
 
+    def reset(self):
+        self.logger.info("Resetting settings")
+        self._settings = self.default_settings.copy()
+        self.dolphin.reset()
+        self.ryujinx.reset()
+        self.yuzu.reset()
+        self.xenia.reset()
+        self.save()
+
     def settings_file_valid(self):
         if not self.settings_file.exists():
             self.logger.info("Settings file does not exist")

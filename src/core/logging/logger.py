@@ -4,7 +4,7 @@ from core.config.constants import App
 
 
 class Logger:
-    def __init__(self, name, console=True):
+    def __init__(self, name):
         # Configure the logger
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.DEBUG)
@@ -19,12 +19,11 @@ class Logger:
             datefmt='%Y-%m-%d %H:%M:%S'
         )
 
-        if console:
-            # Create a console handler and set the log level
-            console_handler = logging.StreamHandler()
-            console_handler.setLevel(logging.DEBUG)
-            console_handler.setFormatter(formatter)
-            self.logger.addHandler(console_handler)
+        # Create a console handler and set the log level
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.DEBUG)
+        console_handler.setFormatter(formatter)
+        self.logger.addHandler(console_handler)
         # create a file handler and set the log level
         try:
             file_handler = logging.FileHandler(f"{App.NAME.value}.log")
@@ -32,6 +31,7 @@ class Logger:
             file_handler.setFormatter(formatter)
             self.logger.addHandler(file_handler)
         except PermissionError:
+            # in case of permission error, log to console
             self.logger.error("Permission denied to write to log file")
 
     def get_logger(self):

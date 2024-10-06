@@ -6,13 +6,19 @@ from core.logging.logger import Logger
 class YuzuSettings:
     def __init__(self):
         self.logger = Logger(__name__).get_logger()
-        self.config = {
+        self.default_config = {
             "install_directory": self.get_default_install_directory(),
             "portable_mode": False,
             "release_channel": "mainline",
             "last_used_data_path": None,
             "sync_user_data": True,
         }
+        self._config = self.default_config.copy()
+
+    def reset(self):
+        self.logger.info("Resetting Yuzu settings")
+        self._config = self.default_config.copy()
+
 
     def get_default_install_directory(self):
         system = platform.system().lower()
@@ -24,10 +30,10 @@ class YuzuSettings:
 
     def _set_property(self, property_name, value):
         self.logger.debug(f"Setting {property_name} to {value}")
-        self.config[property_name] = value
+        self._config[property_name] = value
 
     def _get_property(self, property_name):
-        return self.config.get(property_name)
+        return self._config.get(property_name)
 
     install_directory = property(
         fget=lambda self: self._get_property("install_directory"),

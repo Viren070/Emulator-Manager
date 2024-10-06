@@ -16,6 +16,7 @@ class App(Enum):
     DEFAULT_COLOUR_THEMES = ["blue", "dark-blue", "green"]
     VALID_APPEARANCE_MODES = ["dark", "light"]
     RESULTS_PER_GAME_PAGE = 20
+    VALID_EMULATOR_NAMES = ["dolphin", "xenia", "yuzu", "ryujinx"]
 
 
 class GitHubOAuth(Enum):
